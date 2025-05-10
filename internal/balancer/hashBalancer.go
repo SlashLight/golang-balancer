@@ -3,6 +3,8 @@ package balancer
 import (
 	"hash/fnv"
 	"net/http"
+	"net/url"
+	"sync"
 
 	"github.com/SlashLight/golang-balancer/pkg/my_err"
 )
@@ -12,7 +14,21 @@ type HashBalancer struct {
 	hasher   func(string) int // TODO: заменить интерфейсом
 }
 
-func NewHashBalancer(backends []*Backend) *HashBalancer {
+func NewHashBalancer(backendsURLs []string) (*HashBalancer, error) {
+	backends := make([]*Backend, len(backendsURLs))
+	for idx := range backends {
+		backURL, err := url.Parse(backendsURLs[idx])
+		if err != nil {
+			return nil, my_err.ErrParsingBackendURL
+		}
+
+		backends[idx] = &Backend{
+			URL:   backURL,
+			Alive: true,
+			mu:    sync.RWMutex{},
+		}
+	}
+
 	return &HashBalancer{
 		backends: backends,
 		hasher: func(key string) int {
@@ -20,7 +36,7 @@ func NewHashBalancer(backends []*Backend) *HashBalancer {
 			h.Write([]byte(key))
 			return int(h.Sum32())
 		},
-	}
+	}, nil
 }
 
 func (hb *HashBalancer) Next(r *http.Request) (*Backend, error) {
