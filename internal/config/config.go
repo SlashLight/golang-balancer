@@ -12,6 +12,7 @@ type Config struct {
 	Algorithm string   `yaml: "algorithm" env-required:"true"`
 	Backends  []string `yaml: "backends" env-required:"true"`
 	Port      int      `yaml:"port" env-required: "true"`
+	Retries   int      `yaml:"retries" env-default:"3"`
 }
 
 func MustLoad() *Config {
