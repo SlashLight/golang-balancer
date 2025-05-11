@@ -8,6 +8,7 @@ import (
 
 	bl "github.com/SlashLight/golang-balancer/internal/balancer"
 	"github.com/SlashLight/golang-balancer/internal/config"
+	health_check "github.com/SlashLight/golang-balancer/internal/health-check"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	"github.com/SlashLight/golang-balancer/internal/middleware"
 )
@@ -21,9 +22,19 @@ const (
 	HashAlgorithm       = "hash"
 )
 
+// TODO: перенести в другое место или избавиться(?)
 type Balancer interface {
 	Next(r *http.Request) (*bl.Backend, error)
+	GetAllBackends() []*bl.Backend
 }
+
+//TODO: [x] add healthcheck
+//TODO: [] add rate-limits
+//TODO: [x] fix concurrency
+//TODO: [] add Dockerfile and docker-compose
+//TODO: [] add graceful shutdown
+//TODO: [] add CRUD
+//TODO: [] add database (SQLite)
 
 func main() {
 	cfg := config.MustLoad()
@@ -41,7 +52,7 @@ func main() {
 	//TODO: [] добавить round-robin balancer
 	switch cfg.Algorithm {
 	case HashAlgorithm:
-		balancer, err = bl.NewHashBalancer(cfg.Backends)
+		balancer, err = bl.NewHashBalancer(cfg.Balancer.Backends)
 	default:
 		log.Error("unknown balancer's algorithm", logger.Err(err))
 	}
@@ -59,6 +70,12 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: chain,
 	}
+
+	checker := health_check.NewHealthChecker(cfg.HealthChecker.Interval,
+		balancer,
+		cfg.HealthChecker.CheckURL,
+		log)
+	go checker.Start()
 
 	server.ListenAndServe()
 }

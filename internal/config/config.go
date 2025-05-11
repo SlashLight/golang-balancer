@@ -3,16 +3,27 @@ package config
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
 type Config struct {
-	Env       string   `yaml:"env" env-default:"local"`
-	Algorithm string   `yaml: "algorithm" env-required:"true"`
-	Backends  []string `yaml: "backends" env-required:"true"`
+	Env           string `yaml:"env" env-default:"local"`
+	Balancer      `yaml:"balancer"`
+	HealthChecker `yaml:"healthChecker"`
+}
+
+type Balancer struct {
 	Port      int      `yaml:"port" env-required: "true"`
+	Backends  []string `yaml: "backends" env-required:"true"`
 	Retries   int      `yaml:"retries" env-default:"3"`
+	Algorithm string   `yaml: "algorithm" env-required:"true"`
+}
+
+type HealthChecker struct {
+	Interval time.Duration `yaml:"interval", env-default:"30s"`
+	CheckURL string        `yaml:"checkURL", env-default:"/health"`
 }
 
 func MustLoad() *Config {

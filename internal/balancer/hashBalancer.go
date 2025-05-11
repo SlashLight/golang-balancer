@@ -12,6 +12,7 @@ import (
 type HashBalancer struct {
 	backends []*Backend
 	hasher   func(string) int // TODO: заменить интерфейсом
+	mu       sync.RWMutex
 }
 
 func NewHashBalancer(backendsURLs []string) (*HashBalancer, error) {
@@ -36,6 +37,7 @@ func NewHashBalancer(backendsURLs []string) (*HashBalancer, error) {
 			h.Write([]byte(key))
 			return int(h.Sum32())
 		},
+		mu: sync.RWMutex{},
 	}, nil
 }
 
@@ -47,6 +49,8 @@ func (hb *HashBalancer) Next(r *http.Request) (*Backend, error) {
 
 	hash := hb.hasher(clientIP)
 
+	hb.mu.RLock()
+	defer hb.mu.RUnlock()
 	aliveBackends := hb.getAliveBackends()
 	if len(aliveBackends) == 0 {
 		return nil, my_err.ErrNoAliveBackends
@@ -60,10 +64,16 @@ func (hb *HashBalancer) Next(r *http.Request) (*Backend, error) {
 func (hb *HashBalancer) getAliveBackends() []*Backend {
 	var aliveBackends []*Backend
 	for _, back := range hb.backends {
+		hb.mu.RLock()
 		if back.Alive {
 			aliveBackends = append(aliveBackends, back)
 		}
+		hb.mu.RUnlock()
 	}
 
 	return aliveBackends
+}
+
+func (hb *HashBalancer) GetAllBackends() []*Backend {
+	return hb.backends
 }
