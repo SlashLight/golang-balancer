@@ -12,7 +12,7 @@ import (
 )
 
 type RedisRateLimiter struct {
-	client          *redis.Client
+	Client          *redis.Client
 	defaultCapacity int
 	defaultRate     int
 }
@@ -27,7 +27,7 @@ func NewRedisRateLimiter(cfg *config.Config) *RedisRateLimiter {
 	})
 
 	return &RedisRateLimiter{
-		client:          client,
+		Client:          client,
 		defaultCapacity: cfg.DefaultCapacity,
 		defaultRate:     cfg.DefaultRate,
 	}
@@ -37,7 +37,7 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 	key := "user:" + userIP + ":tokens"
 
 	var allowed bool
-	err := rl.client.Watch(ctx, func(tx *redis.Tx) error {
+	err := rl.Client.Watch(ctx, func(tx *redis.Tx) error {
 
 		data, err := tx.Get(ctx, key).Bytes()
 		var tb TokenBucket
@@ -53,7 +53,10 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 		} else if err != nil {
 			return err
 		} else {
-			json.Unmarshal(data, &tb)
+			err := json.Unmarshal(data, &tb)
+			if err != nil {
+				return err
+			}
 
 			now := time.Now().Unix()
 			since := now - tb.LastUpdate

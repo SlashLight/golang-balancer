@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	health_check "github.com/SlashLight/golang-balancer/internal/health-check"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	"github.com/SlashLight/golang-balancer/internal/middleware"
+	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter"
 )
 
 const (
@@ -19,13 +21,10 @@ const (
 	envProd  = "prod"
 )
 
-//TODO: [x] add healthcheck
-//TODO: [] add rate-limits
-//TODO: [x] fix concurrency
 //TODO: [] add Dockerfile and docker-compose
 //TODO: [] add graceful shutdown
 //TODO: [] add CRUD
-//TODO: [] add database (SQLite)
+//TODO: [] add logger as interface
 
 func main() {
 	cfg := config.MustLoad()
@@ -48,11 +47,19 @@ func main() {
 	})
 
 	maxRetries := cfg.Retries
-	chain := middleware.AccessLog(log)(
-		middleware.RetryMiddleware(balancer, log, maxRetries)(
-			handler,
-		),
-	)
+	limiter := rate_limiter.NewRedisRateLimiter(cfg)
+	if err = limiter.Client.Ping(context.Background()).Err(); err != nil {
+		log.Error("Error connecting to Redis", logger.Err(err))
+		os.Exit(1)
+	}
+
+	chain := middleware.RateLimitMiddleware(limiter, log)(
+		middleware.AccessLog(log)(
+			middleware.RetryMiddleware(balancer, log, maxRetries)(
+				handler,
+			),
+		))
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: chain,
