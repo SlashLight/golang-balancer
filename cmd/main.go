@@ -17,16 +17,7 @@ const (
 	envLocal = "local"
 	envDev   = "dev"
 	envProd  = "prod"
-
-	RoundRobinAlgorithm = "round-robin"
-	HashAlgorithm       = "hash"
 )
-
-// TODO: перенести в другое место или избавиться(?)
-type Balancer interface {
-	Next(r *http.Request) (*bl.Backend, error)
-	GetAllBackends() []*bl.Backend
-}
 
 //TODO: [x] add healthcheck
 //TODO: [] add rate-limits
@@ -46,15 +37,11 @@ func main() {
 		slog.String("env", cfg.Env),
 	)
 
-	var balancer Balancer
-	var err error
-
 	//TODO: [] добавить round-robin balancer
-	switch cfg.Algorithm {
-	case HashAlgorithm:
-		balancer, err = bl.NewHashBalancer(cfg.Balancer.Backends)
-	default:
-		log.Error("unknown balancer's algorithm", logger.Err(err))
+	balancer, err := bl.NewBalancer(cfg.Balancer.Algorithm, cfg.Balancer.Backends)
+	if err != nil {
+		log.Error("failed to init balancer", logger.Err(err))
+		os.Exit(1)
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -75,9 +62,12 @@ func main() {
 		balancer,
 		cfg.HealthChecker.CheckURL,
 		log)
+
 	go checker.Start()
 
-	server.ListenAndServe()
+	if err := server.ListenAndServe(); err != nil {
+		log.Error("failed to start server", logger.Err(err))
+	}
 }
 
 func setupLogger(env string) *slog.Logger {
