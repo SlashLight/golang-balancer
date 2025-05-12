@@ -12,7 +12,7 @@ import (
 	health_check "github.com/SlashLight/golang-balancer/internal/health-check"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	"github.com/SlashLight/golang-balancer/internal/middleware"
-	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter"
+	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter/storage"
 )
 
 const (
@@ -25,6 +25,8 @@ const (
 //TODO: [] add graceful shutdown
 //TODO: [] add CRUD
 //TODO: [] add logger as interface
+//TODO: [] replace http.Error with respondError
+//TODO: [] put logger into responder
 
 func main() {
 	cfg := config.MustLoad()

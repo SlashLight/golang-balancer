@@ -23,7 +23,7 @@ func NewBalancer(algorithm string, backendURLs []string) (Balancer, error) {
 	case HashAlgorithm:
 		balancer, err = NewHashBalancer(backendURLs)
 	default:
-		err = my_err.ErrUnknownAlgotirhm
+		err = my_err.ErrUnknownAlgorithm
 	}
 
 	if err != nil {

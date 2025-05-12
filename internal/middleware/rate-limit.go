@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 
 	resp "github.com/SlashLight/golang-balancer/internal/api/response"
 	"github.com/SlashLight/golang-balancer/internal/logger"
@@ -26,6 +27,7 @@ func RateLimitMiddleware(limiter RateLimiter, log *slog.Logger) func(http.Handle
 				}
 				return
 			}
+			userIP = strings.Replace(userIP, ":", "_", -1)
 
 			allowed, err := limiter.Allow(r.Context(), userIP)
 			if err != nil {

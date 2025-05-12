@@ -6,3 +6,8 @@ type TokenBucket struct {
 	Capacity   int   `json:"capacity"`
 	Rate       int   `json:"rate"`
 }
+
+type Client struct {
+	ClientIP string `json:"client_ip"`
+	TokenBucket
+}

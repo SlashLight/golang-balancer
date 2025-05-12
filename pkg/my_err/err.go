@@ -8,5 +8,6 @@ var (
 	ErrNoClientAddr      = errors.New("empty client IP and port")
 	ErrNoAliveBackends   = errors.New("no alive backends")
 	ErrParsingBackendURL = errors.New("error at parsing backend URL")
-	ErrUnknownAlgotirhm  = errors.New("unknown balancing algorithm")
+	ErrUnknownAlgorithm  = errors.New("unknown balancing algorithm")
+	ErrUserNotFound      = errors.New("user not found")
 )
