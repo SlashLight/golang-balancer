@@ -10,4 +10,5 @@ var (
 	ErrParsingBackendURL = errors.New("error at parsing backend URL")
 	ErrUnknownAlgorithm  = errors.New("unknown balancing algorithm")
 	ErrUserNotFound      = errors.New("user not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
 )

@@ -12,6 +12,7 @@ import (
 	health_check "github.com/SlashLight/golang-balancer/internal/health-check"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	"github.com/SlashLight/golang-balancer/internal/middleware"
+	"github.com/SlashLight/golang-balancer/internal/rate-limiter/controller"
 	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter/storage"
 )
 
@@ -24,7 +25,6 @@ const (
 //TODO: [] add Dockerfile and docker-compose
 //TODO: [] add graceful shutdown
 //TODO: [] add CRUD
-//TODO: [] add logger as interface
 //TODO: [] replace http.Error with respondError
 //TODO: [] put logger into responder
 
@@ -62,9 +62,14 @@ func main() {
 			),
 		))
 
+	clientHandler := middleware.AccessLog(log)(controller.NewRateLimitController(limiter, log))
+
+	mux := http.NewServeMux()
+	mux.Handle("/", chain)
+	mux.Handle("/clients", clientHandler)
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: chain,
+		Handler: mux,
 	}
 
 	checker := health_check.NewHealthChecker(cfg.HealthChecker.Interval,
@@ -82,7 +87,7 @@ func main() {
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
-	//TODO: настроить вывод логгера
+	//TODO: [] настроить вывод логгера
 	switch env {
 	case envLocal:
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))

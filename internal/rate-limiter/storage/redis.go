@@ -94,20 +94,30 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 	return allowed, err
 }
 
-func (rl *RedisRateLimiter) CreateUser(ctx context.Context, user rate_limiter.Client) error {
+func (rl *RedisRateLimiter) CreateClient(ctx context.Context, user *rate_limiter.Client) error {
 	key := "user:" + user.ClientIP + ":tokens"
 
-	_, err := rl.Client.HSet(ctx, key,
-		"tokens", user.Capacity,
-		"last_update", time.Now(),
-		"capacity", user.Capacity,
-		"rate", user.Rate,
-	).Result()
+	return rl.Client.Watch(ctx, func(tx *redis.Tx) error {
+		exists, err := tx.Exists(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		if exists != 0 {
+			return my_err.ErrUserAlreadyExists
+		}
 
-	return err
+		_, err = rl.Client.HSet(ctx, key,
+			"tokens", user.Capacity,
+			"last_update", time.Now(),
+			"capacity", user.Capacity,
+			"rate", user.Rate,
+		).Result()
+
+		return err
+	})
 }
 
-func (rl *RedisRateLimiter) ReadUser(ctx context.Context, userIP string) (*rate_limiter.Client, error) {
+func (rl *RedisRateLimiter) ReadClient(ctx context.Context, userIP string) (*rate_limiter.Client, error) {
 	key := "user:" + userIP + ":tokens"
 
 	result, err := rl.Client.HGetAll(ctx, key).Result()
@@ -146,21 +156,43 @@ func (rl *RedisRateLimiter) ReadUser(ctx context.Context, userIP string) (*rate_
 	}, nil
 }
 
-func (rl *RedisRateLimiter) UpdateClient(ctx context.Context, newClient rate_limiter.Client) error {
+func (rl *RedisRateLimiter) UpdateClient(ctx context.Context, newClient *rate_limiter.Client) error {
 	key := "user:" + newClient.ClientIP + ":tokens"
-	_, err := rl.Client.HSet(ctx, key,
-		"tokens", newClient.Tokens,
-		"last_update", newClient.LastUpdate,
-		"capacity", newClient.Capacity,
-		"rate", newClient.Rate,
-	).Result()
 
-	return err
+	return rl.Client.Watch(ctx, func(tx *redis.Tx) error {
+		exists, err := tx.Exists(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		if exists == 0 {
+			return my_err.ErrUserNotFound
+		}
+
+		_, err = rl.Client.HSet(ctx, key,
+			"tokens", newClient.Tokens,
+			"last_update", newClient.LastUpdate,
+			"capacity", newClient.Capacity,
+			"rate", newClient.Rate,
+		).Result()
+
+		return err
+	})
 }
 
 func (rl *RedisRateLimiter) DeleteClient(ctx context.Context, clientIP string) error {
 	key := "user:" + clientIP + ":tokens"
-	_, err := rl.Client.Del(ctx, key).Result()
 
-	return err
+	return rl.Client.Watch(ctx, func(tx *redis.Tx) error {
+		exists, err := tx.Exists(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		if exists == 0 {
+			return my_err.ErrUserNotFound
+		}
+
+		_, err = rl.Client.Del(ctx, key).Result()
+
+		return err
+	})
 }
