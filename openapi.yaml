@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: go-balancer
+  version: "1.0.0"
+paths:
+  /clients:
+    get:
+      summary: Получить информацию о клиенте
+      parameters:
+        - name: client_id
+          in: query
+          description: IP адрес клиента
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Клиент получен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/client'
+        "404":
+          description: Not Found  
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "500":
+          description: Internal Server Error  
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+    
+    post:
+      summary: добавить нового клиента
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/client'
+      responses:
+        "200":
+          description: Клиент добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "404":
+          description: Not Found 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+
+    put:
+      summary: Обновить клиента
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/client'
+      responses:
+        "200":
+          description: Клиент обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "404":
+          description: Not Found  
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+
+    delete:
+      summary: Удалить клиента
+      parameters:
+        - name: client_id
+          in: query
+          description: IP адрес клиента
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Клиент удален
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "404":
+          description: Not Found 
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/response'
+
+components:
+  schemas:
+    response:
+      type: object  
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: OK
+
+    client:
+      type: object  
+      properties:
+        client_ip:
+          type: string
+          example: "192.168.0.1"
+        capacity:
+          type: integer 
+          example: 30
+        rate:
+          type: integer 
+          example: 2
