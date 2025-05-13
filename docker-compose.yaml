@@ -6,8 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
+    environment:
+      - CONFIG_PATH=local.yaml
     ports:
-      - "8080:8080"
+      - "9080:9080"
     depends_on:
       - redis
 

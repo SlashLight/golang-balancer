@@ -24,8 +24,8 @@ type Balancer struct {
 }
 
 type HealthChecker struct {
-	Interval time.Duration `yaml:"interval" env-default:"30s"`
-	CheckURL string        `yaml:"checkURL" env-default:"/health"`
+	Interval time.Duration `yaml:"interval" env-default:"10s"`
+	CheckURL string        `yaml:"checkURL" env-required:"true"`
 }
 
 type Redis struct {
