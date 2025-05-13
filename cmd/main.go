@@ -22,9 +22,6 @@ const (
 	envProd  = "prod"
 )
 
-//TODO: [] add graceful shutdown
-//TODO: [] add Readme
-
 func main() {
 	cfg := config.MustLoad()
 
@@ -86,10 +83,9 @@ func main() {
 func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 
-	//TODO: [] настроить вывод логгера
 	switch env {
 	case envLocal:
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		log = setupPrettySlog()
 	case envProd:
 		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	case envDev:
@@ -99,4 +95,16 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := logger.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }

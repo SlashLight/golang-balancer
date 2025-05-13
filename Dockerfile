@@ -14,7 +14,7 @@ RUN go build cmd/main.go
 FROM alpine:latest
 
 WORKDIR /app
-EXPOSE 8080
+EXPOSE 9080
 
 COPY config/local.yaml .
 
