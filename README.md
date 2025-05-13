@@ -16,10 +16,10 @@
 ## Конфигурация
 Создайте файл **config.yaml**. Пример конфига:
 ```
-env: "local" # настройка окружения. Есть "local", "dev", "prod". Влияет на уровень логирования
+env: "local"                  # настройка окружения. Есть "local", "dev", "prod". Влияет на уровень логирования
 balancer:
-  port: 8080 # порт, на котором запущен балансировщик 
-  backends:  # URL адреса бэкенд-серверов, нагрузку на которые нужно балансировать
+  port: 8080                  # порт, на котором запущен балансировщик 
+  backends:                   # URL адреса бэкенд-серверов, нагрузку на которые нужно балансировать
     - "http://localhost:8081"
     - "http://localhost:8082"
     - "http://localhost:8083"
@@ -41,7 +41,7 @@ rate-limit:
 Путь к конфигу указывается через переменную окружения **CONFIG_PATH**.
 
 ## Документация API
-![Swagger]](https://editor.swagger.io/?url=https://raw.githubusercontent.com/SlashLight/golang-balancer/refs/heads/main/openapi.yaml)
+![Swagger](https://editor.swagger.io/?url=https://raw.githubusercontent.com/SlashLight/golang-balancer/refs/heads/main/openapi.yaml)
 
 
 ### Основные методы API
