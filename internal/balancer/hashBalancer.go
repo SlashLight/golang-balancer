@@ -1,9 +1,9 @@
 package balancer
 
 import (
+	"fmt"
 	"hash/fnv"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/SlashLight/golang-balancer/pkg/my_err"
@@ -16,18 +16,9 @@ type HashBalancer struct {
 }
 
 func NewHashBalancer(backendsURLs []string) (*HashBalancer, error) {
-	backends := make([]*Backend, len(backendsURLs))
-	for idx := range backends {
-		backURL, err := url.Parse(backendsURLs[idx])
-		if err != nil {
-			return nil, my_err.ErrParsingBackendURL
-		}
-
-		backends[idx] = &Backend{
-			URL:   backURL,
-			Alive: true,
-			mu:    sync.RWMutex{},
-		}
+	backends, err := GetBackendsFromURLS(backendsURLs)
+	if err != nil {
+		return nil, fmt.Errorf("Error at creating Hash balancer: %w", err)
 	}
 
 	return &HashBalancer{
@@ -76,4 +67,12 @@ func (hb *HashBalancer) getAliveBackends() []*Backend {
 
 func (hb *HashBalancer) GetAllBackends() []*Backend {
 	return hb.backends
+}
+
+func (hb *HashBalancer) AddNewBackend(back *Backend) {
+	hb.backends = append(hb.backends, back)
+}
+
+func (hb *HashBalancer) RemoveBackend(idx int) {
+	hb.backends = append(hb.backends[:idx], hb.backends[idx+1:]...)
 }

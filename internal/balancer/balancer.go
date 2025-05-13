@@ -22,6 +22,8 @@ func NewBalancer(algorithm string, backendURLs []string) (Balancer, error) {
 	switch algorithm {
 	case HashAlgorithm:
 		balancer, err = NewHashBalancer(backendURLs)
+	case RoundRobinAlgorithm:
+		balancer, err = NewRoundRobinBalancer(backendURLs)
 	default:
 		err = my_err.ErrUnknownAlgorithm
 	}
