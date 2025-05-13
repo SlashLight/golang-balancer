@@ -41,7 +41,7 @@ rate-limit:
 Путь к конфигу указывается через переменную окружения **CONFIG_PATH**.
 
 ## Документация API
-![Swagger](https://editor.swagger.io/?url=https://raw.githubusercontent.com/SlashLight/golang-balancer/refs/heads/main/openapi.yaml)
+[Swagger](https://editor.swagger.io/?url=https://raw.githubusercontent.com/SlashLight/golang-balancer/refs/heads/main/openapi.yaml)
 
 
 ### Основные методы API
