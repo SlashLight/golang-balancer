@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"strings"
 
+	"github.com/SlashLight/golang-balancer/internal/api/response"
 	bl "github.com/SlashLight/golang-balancer/internal/balancer"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 )
@@ -48,7 +49,7 @@ func RetryMiddleware(balancer Balancer, log *slog.Logger, maxRetries int) func(h
 				backend, err := balancer.Next(r)
 				if err != nil {
 					log.Error("error at getting next alive backend server", logger.Err(err))
-					http.Error(w, "Service unavailable. Try again later", http.StatusServiceUnavailable)
+					response.RespondError(w, http.StatusServiceUnavailable, "Service unavailable. Try again later", log)
 					return
 				}
 
@@ -66,7 +67,7 @@ func RetryMiddleware(balancer Balancer, log *slog.Logger, maxRetries int) func(h
 			}
 
 			log.Error("Couldn't connect to any server after retries")
-			http.Error(w, "Service unavailable. Try again later", http.StatusServiceUnavailable)
+			response.RespondError(w, http.StatusTooManyRequests, "Service unavailable. Try again later", log)
 		}
 		return http.HandlerFunc(fn)
 	}

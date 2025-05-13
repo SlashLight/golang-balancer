@@ -24,9 +24,7 @@ const (
 
 //TODO: [] add Dockerfile and docker-compose
 //TODO: [] add graceful shutdown
-//TODO: [] add CRUD
-//TODO: [] replace http.Error with respondError
-//TODO: [] put logger into responder
+//TODO: [] add Readme
 
 func main() {
 	cfg := config.MustLoad()

@@ -20,29 +20,20 @@ func RateLimitMiddleware(limiter RateLimiter, log *slog.Logger) func(http.Handle
 			userIP, err := api.GetIpFromRequest(r)
 			if err != nil {
 				log.Error("Error trying to get IP addr", logger.Err(err))
-				err = resp.RespondError(w, http.StatusInternalServerError, "Internal error")
-				if err != nil {
-					log.Error("Error at sending message", logger.Err(err))
-				}
+				resp.RespondError(w, http.StatusInternalServerError, "Internal error", log)
 				return
 			}
 
 			allowed, err := limiter.Allow(r.Context(), userIP)
 			if err != nil {
 				log.Error("Error trying to get rate limits for user", logger.Err(err))
-				err = resp.RespondError(w, http.StatusInternalServerError, "Internal error")
-				if err != nil {
-					log.Error("Error at sending message", logger.Err(err))
-				}
+				resp.RespondError(w, http.StatusInternalServerError, "Internal error", log)
 				return
 			}
 
 			if !allowed {
 				log.Info("User reached the limit", userIP)
-				err = resp.RespondError(w, http.StatusTooManyRequests, "Rate limit exceeded")
-				if err != nil {
-					log.Error("Error at sending message", logger.Err(err))
-				}
+				resp.RespondError(w, http.StatusTooManyRequests, "Rate limit exceeded", log)
 				return
 			}
 

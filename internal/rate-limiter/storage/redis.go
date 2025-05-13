@@ -96,6 +96,12 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 
 func (rl *RedisRateLimiter) CreateClient(ctx context.Context, user *rate_limiter.Client) error {
 	key := "user:" + user.ClientIP + ":tokens"
+	if user.Capacity == 0 {
+		user.Capacity = rl.defaultCapacity
+	}
+	if user.Rate == 0 {
+		user.Rate = rl.defaultRate
+	}
 
 	return rl.Client.Watch(ctx, func(tx *redis.Tx) error {
 		exists, err := tx.Exists(ctx, key).Result()
@@ -168,12 +174,20 @@ func (rl *RedisRateLimiter) UpdateClient(ctx context.Context, newClient *rate_li
 			return my_err.ErrUserNotFound
 		}
 
-		_, err = rl.Client.HSet(ctx, key,
-			"tokens", newClient.Tokens,
-			"last_update", newClient.LastUpdate,
-			"capacity", newClient.Capacity,
-			"rate", newClient.Rate,
-		).Result()
+		if newClient.Capacity != 0 {
+			_, err = rl.Client.HSet(ctx, key,
+				"capacity", newClient.Capacity,
+			).Result()
+		}
+		if err != nil {
+			return err
+		}
+
+		if newClient.Rate != 0 {
+			_, err = rl.Client.HSet(ctx, key,
+				"rate", newClient.Rate,
+			).Result()
+		}
 
 		return err
 	})

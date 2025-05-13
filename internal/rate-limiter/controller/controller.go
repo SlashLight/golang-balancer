@@ -3,12 +3,14 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	resp "github.com/SlashLight/golang-balancer/internal/api/response"
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter"
+	"github.com/SlashLight/golang-balancer/pkg/my_err"
 )
 
 type RateLimitRepo interface {
@@ -31,8 +33,6 @@ func (c *RateLimitController) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	c.HandleClients(w, r)
 }
 
-// TODO: [] добавить errors.Is на проверку того, что пользователь существует
-// TODO: [] уменьшить дублирование кода
 func (c *RateLimitController) HandleClients(w http.ResponseWriter, r *http.Request) {
 	var client *rate_limiter.Client
 	var err error
@@ -42,17 +42,19 @@ func (c *RateLimitController) HandleClients(w http.ResponseWriter, r *http.Reque
 		clientID := r.URL.Query().Get("client_id")
 		if clientID == "" {
 			c.Log.Error("empty client ID")
-			err = resp.RespondError(w, http.StatusBadRequest, "no client ID")
+			resp.RespondError(w, http.StatusBadRequest, "no client ID", c.Log)
 			return
 		}
 
 		client, err = c.Repo.ReadClient(r.Context(), clientID)
 		if err != nil {
 			c.Log.Error("error at getting client", logger.Err(err))
-			err = resp.RespondError(w, http.StatusInternalServerError, "error at getting client")
-			if err != nil {
-				c.Log.Error("Error at sending message", logger.Err(err))
+			if errors.Is(err, my_err.ErrUserNotFound) {
+				resp.RespondError(w, http.StatusBadRequest, "client not found", c.Log)
+				return
 			}
+
+			resp.RespondError(w, http.StatusInternalServerError, "error at getting client", c.Log)
 			return
 		}
 
@@ -67,22 +69,22 @@ func (c *RateLimitController) HandleClients(w http.ResponseWriter, r *http.Reque
 
 		if client.ClientIP == "" {
 			c.Log.Error("empty client IP")
-			resp.RespondError(w, http.StatusBadRequest, "Client IP is empty")
-			return
-		}
-		if err = c.Repo.CreateClient(r.Context(), client); err != nil {
-			c.Log.Error("error at creating client", logger.Err(err))
-			err = resp.RespondError(w, http.StatusInternalServerError, "error at creating client")
-			if err != nil {
-				c.Log.Error("Error at sending message", logger.Err(err))
-			}
+			resp.RespondError(w, http.StatusBadRequest, "Client IP is empty", c.Log)
 			return
 		}
 
-		err = resp.RespondOK(w, http.StatusOK)
-		if err != nil {
-			c.Log.Error("Error at sending message", logger.Err(err))
+		if err = c.Repo.CreateClient(r.Context(), client); err != nil {
+			c.Log.Error("error at creating client", logger.Err(err))
+			if errors.Is(err, my_err.ErrUserAlreadyExists) {
+				resp.RespondError(w, http.StatusBadRequest, "client already exists", c.Log)
+				return
+			}
+
+			resp.RespondError(w, http.StatusInternalServerError, "error at creating client", c.Log)
+			return
 		}
+
+		resp.RespondOK(w, http.StatusOK, c.Log)
 	case http.MethodPut:
 		if err := json.NewDecoder(r.Body).Decode(&client); err != nil {
 			c.Log.Error("error at getting client from request body", logger.Err(err))
@@ -91,47 +93,38 @@ func (c *RateLimitController) HandleClients(w http.ResponseWriter, r *http.Reque
 
 		if err = c.Repo.UpdateClient(r.Context(), client); err != nil {
 			c.Log.Error("error at updating client", logger.Err(err))
-			err = resp.RespondError(w, http.StatusInternalServerError, "error at updating client")
-			if err != nil {
-				c.Log.Error("Error at sending message", logger.Err(err))
+			if errors.Is(err, my_err.ErrUserNotFound) {
+				resp.RespondError(w, http.StatusBadRequest, "client not exists", c.Log)
+				return
 			}
+			resp.RespondError(w, http.StatusInternalServerError, "error at updating client", c.Log)
 			return
 		}
 
-		err = resp.RespondOK(w, http.StatusOK)
-		if err != nil {
-			c.Log.Error("Error at sending message", logger.Err(err))
-		}
+		resp.RespondOK(w, http.StatusOK, c.Log)
 	case http.MethodDelete:
 		clientID := r.URL.Query().Get("client_id")
 		if clientID == "" {
 			c.Log.Error("empty client ID")
-			err = resp.RespondError(w, http.StatusBadRequest, "no client ID")
-			if err != nil {
-				c.Log.Error("Error at sending message", logger.Err(err))
-			}
+			resp.RespondError(w, http.StatusBadRequest, "no client ID", c.Log)
 			return
 		}
 
 		err = c.Repo.DeleteClient(r.Context(), clientID)
 		if err != nil {
 			c.Log.Error("error at getting client", logger.Err(err))
-			err = resp.RespondError(w, http.StatusInternalServerError, "error at getting client")
-			if err != nil {
-				c.Log.Error("Error at sending message", logger.Err(err))
+			if errors.Is(err, my_err.ErrUserNotFound) {
+				resp.RespondError(w, http.StatusBadRequest, "client not exists", c.Log)
+				return
 			}
+
+			resp.RespondError(w, http.StatusInternalServerError, "error at getting client", c.Log)
 			return
 		}
 
-		err = resp.RespondOK(w, http.StatusOK)
-		if err != nil {
-			c.Log.Error("Error at sending message", logger.Err(err))
-		}
+		resp.RespondOK(w, http.StatusOK, c.Log)
 
 	default:
-		err = resp.RespondError(w, http.StatusMethodNotAllowed, "method not allowed")
-		if err != nil {
-			c.Log.Error("Error at sending message", logger.Err(err))
-		}
+		resp.RespondError(w, http.StatusMethodNotAllowed, "method not allowed", c.Log)
 	}
 }

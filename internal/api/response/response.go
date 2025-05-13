@@ -2,7 +2,10 @@ package response
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+
+	"github.com/SlashLight/golang-balancer/internal/logger"
 )
 
 type Response struct {
@@ -12,7 +15,7 @@ type Response struct {
 
 const messageOK = "OK"
 
-func RespondError(w http.ResponseWriter, code int, message string) error {
+func RespondError(w http.ResponseWriter, code int, message string, log *slog.Logger) {
 	w.Header().Set("Content-Type", "application/json:charset=UTF-8")
 	w.WriteHeader(code)
 
@@ -22,13 +25,11 @@ func RespondError(w http.ResponseWriter, code int, message string) error {
 	}
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		return err
+		log.Error("error at sending message", logger.Err(err))
 	}
-
-	return nil
 }
 
-func RespondOK(w http.ResponseWriter, code int) error {
+func RespondOK(w http.ResponseWriter, code int, log *slog.Logger) {
 	w.Header().Set("Content-Type", "application/json:charset=UTF-8")
 	w.WriteHeader(code)
 
@@ -38,8 +39,6 @@ func RespondOK(w http.ResponseWriter, code int) error {
 	}
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		return err
+		log.Error("error at sending message", logger.Err(err))
 	}
-
-	return nil
 }
