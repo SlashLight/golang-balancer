@@ -42,31 +42,10 @@ func (hb *HashBalancer) Next(r *http.Request) (*Backend, error) {
 
 	hb.mu.RLock()
 	defer hb.mu.RUnlock()
-	aliveBackends := hb.getAliveBackends()
-	if len(aliveBackends) == 0 {
-		return nil, my_err.ErrNoAliveBackends
-	}
 
-	index := hash % len(aliveBackends)
+	index := hash % len(hb.backends)
 
-	return aliveBackends[index], nil
-}
-
-func (hb *HashBalancer) getAliveBackends() []*Backend {
-	var aliveBackends []*Backend
-	for _, back := range hb.backends {
-		hb.mu.RLock()
-		if back.Alive {
-			aliveBackends = append(aliveBackends, back)
-		}
-		hb.mu.RUnlock()
-	}
-
-	return aliveBackends
-}
-
-func (hb *HashBalancer) GetAllBackends() []*Backend {
-	return hb.backends
+	return hb.backends[index], nil
 }
 
 func (hb *HashBalancer) AddNewBackend(back *Backend) {

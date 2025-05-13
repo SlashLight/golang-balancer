@@ -31,13 +31,12 @@ func NewRoundRobinBalancer(backendsURLs []string) (*RoundRobinBalancer, error) {
 func (rr *RoundRobinBalancer) Next(r *http.Request) (*Backend, error) {
 	rr.mu.RLock()
 	defer rr.mu.RUnlock()
-	aliveBackends := rr.getAliveBackends()
-	if len(aliveBackends) == 0 {
+	if len(rr.backends) == 0 {
 		return nil, my_err.ErrNoAliveBackends
 	}
-	index := atomic.AddUint64(&rr.current, 1) % uint64(len(aliveBackends))
+	index := atomic.AddUint64(&rr.current, 1) % uint64(len(rr.backends))
 
-	return aliveBackends[index], nil
+	return rr.backends[index], nil
 }
 
 func (rr *RoundRobinBalancer) getAliveBackends() []*Backend {
@@ -51,10 +50,6 @@ func (rr *RoundRobinBalancer) getAliveBackends() []*Backend {
 	}
 
 	return aliveBackends
-}
-
-func (rr *RoundRobinBalancer) GetAllBackends() []*Backend {
-	return rr.backends
 }
 
 func (rr *RoundRobinBalancer) AddNewBackend(back *Backend) {

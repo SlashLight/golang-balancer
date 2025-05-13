@@ -9,7 +9,6 @@ import (
 
 type BackendConnections struct {
 	connections uint64
-	index       int
 	Back        *Backend
 }
 
@@ -20,13 +19,13 @@ func (h BackendHeap) Less(i, j int) bool { return h[i].connections < h[j].connec
 
 func (h BackendHeap) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
-	h[i].index = i
-	h[j].index = j
+	h[i].Back.Index = i
+	h[j].Back.Index = j
 }
 
 func (h *BackendHeap) Push(x interface{}) {
 	backend := x.(*BackendConnections)
-	backend.index = len(*h)
+	backend.Back.Index = len(*h)
 	*h = append(*h, backend)
 }
 
@@ -34,7 +33,7 @@ func (h *BackendHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	backend := old[n-1]
-	backend.index = -1
+	backend.Back.Index = -1
 	*h = old[0 : n-1]
 	return backend
 }
@@ -53,7 +52,6 @@ func NewLeastConnectionBalancer(backendsURLs []string) (*LeastConnectionsBalance
 	for idx, back := range backends {
 		backendWithCons[idx] = &BackendConnections{
 			connections: 0,
-			index:       idx,
 			Back:        back,
 		}
 	}
@@ -82,7 +80,7 @@ func (lc *LeastConnectionsBalancer) Release(backend *BackendConnections) {
 	defer lc.mu.Unlock()
 
 	backend.connections--
-	heap.Fix(&lc.backends, backend.index)
+	heap.Fix(&lc.backends, backend.Back.Index)
 }
 
 func (lc *LeastConnectionsBalancer) AddNewBackend(back *Backend) {
@@ -90,5 +88,5 @@ func (lc *LeastConnectionsBalancer) AddNewBackend(back *Backend) {
 }
 
 func (lc *LeastConnectionsBalancer) RemoveBackend(idx int) {
-	hb.backends = append(hb.backends[:idx], hb.backends[idx+1:]...)
+	heap.Remove(&lc.backends, idx)
 }

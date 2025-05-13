@@ -13,7 +13,7 @@ import (
 	"github.com/SlashLight/golang-balancer/internal/logger"
 	"github.com/SlashLight/golang-balancer/internal/middleware"
 	"github.com/SlashLight/golang-balancer/internal/rate-limiter/controller"
-	rate_limiter "github.com/SlashLight/golang-balancer/internal/rate-limiter/storage"
+	"github.com/SlashLight/golang-balancer/internal/rate-limiter/storage"
 )
 
 const (
@@ -22,7 +22,6 @@ const (
 	envProd  = "prod"
 )
 
-//TODO: [] add Dockerfile and docker-compose
 //TODO: [] add graceful shutdown
 //TODO: [] add Readme
 
@@ -36,7 +35,6 @@ func main() {
 		slog.String("env", cfg.Env),
 	)
 
-	//TODO: [] добавить round-robin balancer
 	balancer, err := bl.NewBalancer(cfg.Balancer.Algorithm, cfg.Balancer.Backends)
 	if err != nil {
 		log.Error("failed to init balancer", logger.Err(err))
@@ -47,7 +45,7 @@ func main() {
 	})
 
 	maxRetries := cfg.Retries
-	limiter := rate_limiter.NewRedisRateLimiter(cfg)
+	limiter := storage.NewRedisRateLimiter(cfg)
 	if err = limiter.Client.Ping(context.Background()).Err(); err != nil {
 		log.Error("Error connecting to Redis", logger.Err(err))
 		os.Exit(1)
@@ -59,7 +57,6 @@ func main() {
 				handler,
 			),
 		))
-
 	clientHandler := middleware.AccessLog(log)(controller.NewRateLimitController(limiter, log))
 
 	mux := http.NewServeMux()
@@ -70,12 +67,16 @@ func main() {
 		Handler: mux,
 	}
 
-	checker := health_check.NewHealthChecker(cfg.HealthChecker.Interval,
-		balancer,
+	checker, err := health_check.NewHealthChecker(cfg.HealthChecker.Interval,
+		cfg.Backends,
 		cfg.HealthChecker.CheckURL,
 		log)
+	if err != nil {
+		log.Error("failed to init health checker", logger.Err(err))
+		os.Exit(1)
+	}
 
-	go checker.Start()
+	go checker.Start(balancer)
 
 	if err := server.ListenAndServe(); err != nil {
 		log.Error("failed to start server", logger.Err(err))

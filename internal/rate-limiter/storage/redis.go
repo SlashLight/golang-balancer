@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -19,6 +18,8 @@ type RedisRateLimiter struct {
 	defaultCapacity int
 	defaultRate     int
 }
+
+const TimeFormat = time.RFC3339
 
 func NewRedisRateLimiter(cfg *config.Config) *RedisRateLimiter {
 	client := redis.NewClient(&redis.Options{
@@ -42,10 +43,10 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 	var allowed bool
 	err := rl.Client.Watch(ctx, func(tx *redis.Tx) error {
 
-		data, err := tx.Get(ctx, key).Bytes()
+		data, err := rl.ReadClient(ctx, userIP)
 		var tb rate_limiter.TokenBucket
 
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, my_err.ErrUserNotFound) {
 			tb = rate_limiter.TokenBucket{
 				Tokens:     rl.defaultCapacity - 1,
 				LastUpdate: time.Now().Unix(),
@@ -56,7 +57,7 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 		} else if err != nil {
 			return err
 		} else {
-			err := json.Unmarshal(data, &tb)
+			tb = data.TokenBucket
 			if err != nil {
 				return err
 			}
@@ -80,7 +81,7 @@ func (rl *RedisRateLimiter) Allow(ctx context.Context, userIP string) (bool, err
 		_, err = tx.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
 			_, err := pipeliner.HSet(ctx, key,
 				"tokens", tb.Tokens,
-				"last_update", time.Now(),
+				"last_update", time.Now().Format(TimeFormat),
 				"capacity", tb.Capacity,
 				"rate", tb.Rate,
 			).Result()
@@ -114,7 +115,7 @@ func (rl *RedisRateLimiter) CreateClient(ctx context.Context, user *rate_limiter
 
 		_, err = rl.Client.HSet(ctx, key,
 			"tokens", user.Capacity,
-			"last_update", time.Now(),
+			"last_update", time.Now().Format(TimeFormat),
 			"capacity", user.Capacity,
 			"rate", user.Rate,
 		).Result()
@@ -125,41 +126,61 @@ func (rl *RedisRateLimiter) CreateClient(ctx context.Context, user *rate_limiter
 
 func (rl *RedisRateLimiter) ReadClient(ctx context.Context, userIP string) (*rate_limiter.Client, error) {
 	key := "user:" + userIP + ":tokens"
+	var client *rate_limiter.Client
 
-	result, err := rl.Client.HGetAll(ctx, key).Result()
+	err := rl.Client.Watch(ctx, func(tx *redis.Tx) error {
+		exists, err := rl.Client.Exists(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		if exists == 0 {
+			return my_err.ErrUserNotFound
+		}
+
+		result, err := rl.Client.HGetAll(ctx, key).Result()
+		if err != nil {
+			return err
+		}
+		if len(result) == 0 {
+			return my_err.ErrUserNotFound
+		}
+
+		rateLimit, err := strconv.Atoi(result["rate"])
+		if err != nil {
+			return err
+		}
+		capacity, err := strconv.Atoi(result["capacity"])
+		if err != nil {
+			return err
+		}
+		lastUpdate, err := time.Parse(TimeFormat, result["last_update"])
+		if err != nil {
+			return err
+		}
+
+		tokens, err := strconv.Atoi(result["tokens"])
+		if err != nil {
+			return err
+		}
+
+		client = &rate_limiter.Client{
+			ClientIP: userIP,
+			TokenBucket: rate_limiter.TokenBucket{
+				Tokens:     tokens,
+				LastUpdate: lastUpdate.Unix(),
+				Capacity:   capacity,
+				Rate:       rateLimit,
+			},
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
-	}
-	if len(result) == 0 {
-		return nil, my_err.ErrUserNotFound
 	}
 
-	rateLimit, err := strconv.Atoi(result["rate_limit"])
-	if err != nil {
-		return nil, err
-	}
-	capacity, err := strconv.Atoi(result["capacity"])
-	if err != nil {
-		return nil, err
-	}
-	lastUpdate, err := strconv.Atoi(result["last_update"])
-	if err != nil {
-		return nil, err
-	}
-	tokens, err := strconv.Atoi(result["tokens"])
-	if err != nil {
-		return nil, err
-	}
-
-	return &rate_limiter.Client{
-		ClientIP: userIP,
-		TokenBucket: rate_limiter.TokenBucket{
-			Tokens:     tokens,
-			LastUpdate: int64(lastUpdate),
-			Capacity:   capacity,
-			Rate:       rateLimit,
-		},
-	}, nil
+	return client, nil
 }
 
 func (rl *RedisRateLimiter) UpdateClient(ctx context.Context, newClient *rate_limiter.Client) error {

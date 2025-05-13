@@ -15,6 +15,11 @@ import (
 
 type Balancer interface {
 	Next(r *http.Request) (*bl.Backend, error)
+	RemoveBackend(int)
+}
+
+type ConnectionTracker interface {
+	Release(*bl.Backend)
 }
 
 var AllowedMethods = map[string]bool{
@@ -59,11 +64,15 @@ func RetryMiddleware(balancer Balancer, log *slog.Logger, maxRetries int) func(h
 				proxy.ServeHTTP(recorder, r)
 
 				if recorder.StatusCode < 500 && !isConnectionError(recorder) {
+					if tracker, ok := balancer.(ConnectionTracker); ok {
+						defer tracker.Release(backend)
+					}
 					return
 				}
 
 				log.Error("Failed to connect to backend server: ", backend.URL)
 				backend.SetAlive(false)
+				balancer.RemoveBackend(backend.Index)
 			}
 
 			log.Error("Couldn't connect to any server after retries")

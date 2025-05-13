@@ -8,12 +8,14 @@ import (
 
 type Balancer interface {
 	Next(r *http.Request) (*Backend, error)
-	GetAllBackends() []*Backend
+	AddNewBackend(*Backend)
+	RemoveBackend(int)
 }
 
 const (
 	RoundRobinAlgorithm = "round-robin"
 	HashAlgorithm       = "hash"
+	LeastConnections    = "least-connections"
 )
 
 func NewBalancer(algorithm string, backendURLs []string) (Balancer, error) {
@@ -24,6 +26,8 @@ func NewBalancer(algorithm string, backendURLs []string) (Balancer, error) {
 		balancer, err = NewHashBalancer(backendURLs)
 	case RoundRobinAlgorithm:
 		balancer, err = NewRoundRobinBalancer(backendURLs)
+	case LeastConnections:
+		balancer, err = NewLeastConnectionBalancer(backendURLs)
 	default:
 		err = my_err.ErrUnknownAlgorithm
 	}
