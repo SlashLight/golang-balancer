@@ -10,7 +10,7 @@ import (
 type Backend struct {
 	URL   *url.URL
 	Alive bool
-	index int
+	Index int
 	mu    sync.RWMutex
 }
 
@@ -31,7 +31,7 @@ func GetBackendsFromURLS(backendsURLs []string) ([]*Backend, error) {
 		backends[idx] = &Backend{
 			URL:   backURL,
 			Alive: true,
-			index: idx,
+			Index: idx,
 			mu:    sync.RWMutex{},
 		}
 	}

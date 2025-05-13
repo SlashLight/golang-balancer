@@ -3,6 +3,7 @@ package health_check
 import (
 	"log/slog"
 	"net/http"
+	url2 "net/url"
 	"sync"
 	"time"
 
@@ -10,8 +11,8 @@ import (
 )
 
 type Balancer interface {
-	Add(*balancer.Backend)
-	Remove
+	AddNewBackend(*balancer.Backend)
+	RemoveBackend(int)
 }
 type HealthChecker struct {
 	interval       time.Duration
@@ -37,7 +38,7 @@ func NewHealthChecker(timer time.Duration, backs []string, checkURL string, log 
 }
 
 // TODO: добавить логи
-func (hc *HealthChecker) Start(balancer) {
+func (hc *HealthChecker) Start(balancer Balancer) {
 	ticker := time.NewTicker(hc.interval)
 	for range ticker.C {
 		hc.mu.RLock()
@@ -45,24 +46,27 @@ func (hc *HealthChecker) Start(balancer) {
 		hc.mu.RUnlock()
 
 		for _, back := range backends {
-			resp, err := http.Get(back.URL.String() + hc.HealthCheckURL)
+			doctor := http.Client{Timeout: time.Second}
+			healthUrl, err := url2.Parse(back.URL.String() + hc.HealthCheckURL)
+			resp, err := doctor.Do(&http.Request{Method: http.MethodGet, URL: healthUrl})
 
 			isAlive := err == nil && resp.StatusCode < 500
 			hc.mu.RLock()
 			if isAlive && !back.Alive {
 				hc.log.Info("backend is now alive", back.URL.String())
+				balancer.AddNewBackend(back)
 
 			} else if !isAlive && back.Alive {
 				hc.log.Info("backend doesnt respond correctly", back.URL.String())
+				balancer.RemoveBackend(back.Index)
 			}
+			hc.mu.RUnlock()
 
 			if isAlive != back.Alive {
 				hc.mu.Lock()
 				back.SetAlive(isAlive)
 				hc.mu.Unlock()
 			}
-
-			hc.mu.RUnlock()
 		}
 	}
 }
